@@ -4,6 +4,7 @@ import pandas as pd
 import yfinance as yf
 import threading
 import time
+import logging
 
 class FinanceApp:
     def __init__(self, root):
@@ -13,6 +14,9 @@ class FinanceApp:
         self.default_columns = ['Industry', 'Sector', 'Market Cap']
         self.columns = ['Ticker'] + self.default_columns
         self.selected_columns = self.default_columns.copy()
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
         
         # Create a frame for the input box
         self.input_frame = ttk.Frame(root)
@@ -69,12 +73,17 @@ class FinanceApp:
             self.table.column(col, width=150, anchor='center' if col == 'Market Cap' else 'w')
 
     def load_tickers(self):
-        file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-        if file_path:
-            df = pd.read_csv(file_path)
-            tickers = df.iloc[:, 0].tolist()
-            self.input_text.delete(1.0, tk.END)
-            self.input_text.insert(tk.END, ', '.join(tickers[:10]))
+        try:
+            file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            if file_path:
+                df = pd.read_csv(file_path)
+                tickers = df.iloc[:, 0].tolist()
+                self.input_text.delete(1.0, tk.END)
+                self.input_text.insert(tk.END, ', '.join(tickers[:10]))
+                logging.info("Tickers loaded successfully from CSV file.")
+        except Exception as e:
+            logging.error(f"Failed to load tickers: {e}")
+            messagebox.showerror("Error", "Failed to load tickers.")
 
     def fetch_data(self, ticker):
         try:
@@ -84,19 +93,26 @@ class FinanceApp:
             row = [ticker.upper()] + [info.get(col.lower(), '') for col in self.selected_columns]
             if 'Market Cap' in self.selected_columns:
                 row[self.selected_columns.index('Market Cap') + 1] = f"{market_cap_inr:,.2f} Cr"
+            logging.info(f"Data fetched successfully for ticker: {ticker}")
         except Exception as e:
+            logging.error(f"Failed to fetch data for ticker {ticker}: {e}")
             row = [ticker.upper()] + ['' for _ in self.selected_columns]
         return row
 
     def export_to_csv(self):
-        data = []
-        for child in self.table.get_children():
-            data.append(self.table.item(child)['values'])
-        df = pd.DataFrame(data, columns=self.table['columns'])
-        file_path = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV files', '*.csv')])
-        if file_path:
-            df.to_csv(file_path, index=False)
-            messagebox.showinfo('Success', 'Data exported successfully!')
+        try:
+            data = []
+            for child in self.table.get_children():
+                data.append(self.table.item(child)['values'])
+            df = pd.DataFrame(data, columns=self.table['columns'])
+            file_path = filedialog.asksaveasfilename(defaultextension='.csv', filetypes=[('CSV files', '*.csv')])
+            if file_path:
+                df.to_csv(file_path, index=False)
+                messagebox.showinfo('Success', 'Data exported successfully!')
+                logging.info("Data exported successfully to CSV.")
+        except Exception as e:
+            logging.error(f"Failed to export data: {e}")
+            messagebox.showerror("Error", "Failed to export data.")
 
     def display_data(self, data):
         for i, row in enumerate(data):
